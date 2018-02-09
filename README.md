@@ -1,6 +1,10 @@
 # 微信小游戏《星途wegoing》刷分代码!
 > 最近大家都在刷《跳一跳》的分数，排行榜已经全部沦为外挂的天下，刷多少分是个够呢。后来找到《星途wegoing》，分数玩不过别人，就开始动了歪心思。
 
+## 注意事项
+
+* 最近游戏又更新，正在更新新的代码，请稍等。
+
 * 程序默认刷233000分，要改分数请注意一定要改一个合理的分数。
 
 * 如：总分数~=金币数量*300+(level-100)*200 以及combo的加成等。
@@ -9,6 +13,8 @@
 
 
 ## 更新
+
+* 2018-1-22 新增QQ交流群，后面有不懂得朋友在群里交流，具体翻到页面底部查看。
 
 * 2018-1-22 新增编译后的版本，windows平台的朋友如果没有python环境，可以直接下载exe执行。在[这里](https://github.com/Mocha-L/wechat_wegoing/tree/master/code)
 
@@ -56,9 +62,14 @@
 * 如果还有不明白的可以参考/game_package/wx7a727ff7d940bb3f.wxapkg.unpack/game.js文件，大致在1700行。如下：
 ![](https://github.com/Mocha-L/wechat_wegoing/blob/master/image/gamejs.png)
 
-* 还有疑问请提issues或者关注微信公众号“燕幕自安”获取我的联系方式，欢迎关注！
+# 联系我
+如果还有疑问，请通过以下方式联系我
+* 提issues
+* 关注微信公众号“燕幕自安”获取我的联系方式
+* 加入我的QQ交流群（扫描下方二维码或搜索群号码579737590），大家帮助你解决问题
 
-![](https://github.com/Mocha-L/Fitness_wxApp/blob/master/res/my_qr2.jpg)
+![QQ群](https://github.com/Mocha-L/wechat_wegoing/blob/master/image/qq.png)
+![公众号](https://github.com/Mocha-L/Fitness_wxApp/blob/master/res/my_qr2.jpg)
 
 
 
