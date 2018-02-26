@@ -7,7 +7,11 @@
 
 
 import requests
+import execjs
 import json
+import time
+import traceback
+
 
 session = requests.session()
 APPID = 'wx7a727ff7d940bb3f'
@@ -15,64 +19,50 @@ APPID = 'wx7a727ff7d940bb3f'
 # 禁用安全请求警告
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
-def get_packet():
-    '''该函数用来获取小程序包'''
-    headers = {
-        'Accept-Encoding': 'gzip',
-        'User-Agent': 'MicroMessenger Client',
-        'Content-Type': 'application/octet-stream',
-        'Upgrade-Insecure-Requests': '1',
-        'Accept': '*/*',
-    }
-    req = session.get(
-        'https://res.servicewechat.com/weapp/release/wx7a727ff7d940bb3f/14.wxapkg?rand=1192033587&pass_key=UfkTXX5U0A-gr6mad_49Evw8qNKn9vNZCNIoPclz0VuHT6w6Cx8U_rbKQCUU-41O9vy2dqBGFn1I0-ydGEgYcEhWR02MgE9OK8CdDP1jiA43dCEhZnPTH5tAiW1AbN2E&ext_code=hQfMJjqOYIY0fk6CDERUQCZm2DNaZJe9Nf4nNrWu-Dg',
-        headers=headers,
-        verify=False
-    )
-    with open('wx7a727ff7d940bb3f.wxapkg', 'wb+') as f:
-        f.write(req.content)
+headers = {
+    'Accept-Encoding': 'br, gzip, deflate',
+    'Accept-Language': 'zh-cn', 'Accept': '*/*',
+    'Referer': 'https://servicewechat.com/wx7a727ff7d940bb3f/23/page-frame.html',
+    'Content-Type': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 11_2_1 like Mac OS X) AppleWebKit/604.4.7 (KHTML, like Gecko) Mobile/15C153 MicroMessenger/6.6.1 NetType/WIFI Language/zh_CN'
+}
+
+def get_jsfile(filename):
+    with open(filename, 'rb+') as f:
+        data = f.read()
+    return data.decode()
 
 
-def get_sig(score_list):
-    score_with_salt = APPID
-    for item in score_list:
-        score_with_salt += '_' + str(item.get('key', '')) + ':' + str(item.get('value', ''))
-
-    print('score_with_salt: {}'.format(score_with_salt))
-    result = 0
-    for index, ch in enumerate(score_with_salt):
-        result = 31 * result + ord(ch)
-    result &= 67108863
-    print('result: {}'.format(result))
+def aes_enc(data, key, iv):
+    bjs = get_jsfile('crypto.js')
+    result = execjs.compile(bjs).call('enc', data, key, iv)
     return result
 
 
-def main():
-    sessionid = input('please input sessionid:')
-    headers = {
-        'Accept-Encoding': 'br, gzip, deflate',
-        'Accept-Language': 'zh-cn',
-        'Accept': '*/*',
-        'Referer': 'https://servicewechat.com/wx7a727ff7d940bb3f/23/page-frame.html',
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 11_2_1 like Mac OS X) AppleWebKit/604.4.7 (KHTML, like Gecko) Mobile/15C153 MicroMessenger/6.6.1 NetType/WIFI Language/zh_CN'
-    }
-    # score_list = [{"key":"newscore","value":1800},{"key":"level","value":109},{"key":"baoshi","value":0},{"key":"combo","value":8}]
-    score_list = [
-        {"key": "newscore", "value": 233000},
-        {"key": "level", "value": 334},
-        {"key": "baoshi", "value": 233},
-        {"key": "combo", "value": 233}
-    ]
-    data = {
-        "appid": APPID,
-        "game_behav_list": score_list,
-        "sync_type": 1,
-        "sig": get_sig(score_list),
-        "use_time": 120
-    }
-    url = 'https://game.weixin.qq.com/cgi-bin/gametetrisws/syncgame?session_id={}'.format(sessionid)
-    print('url: ',url)
+def get_enckey(sessionid, nonce):
+    n, s, r, a = '0123456789abcdef', '', 4026531840, 28
+    for o in range(8):
+        s += n[(r & nonce) >> a]
+        r >>= 4
+        a -= 4
+    for h in range(12):
+        s += n[(240 & ord(sessionid[h])) >> 4]
+        s += n[15 & ord(sessionid[h])]
+    return s
+
+
+def data_enc(sessionid, nonce, data):
+    if not isinstance(data, str):
+        print('data type error!')
+        return None
+
+    key = get_enckey(sessionid, nonce)
+    return aes_enc(data, key, '0123456789abcdef')
+
+
+def sync_score(sessionid, data):
+    url = 'https://game.weixin.qq.com/cgi-bin/gametetrisws/syncgamev2?session_id={}'.format(sessionid)
+    print('url: ', url)
     req = session.post(
         url,
         data=json.dumps(data),
@@ -81,11 +71,68 @@ def main():
     ).json()
     print(req)
     if req.get('errcode', -1) == 0:
-        print('success!')
+        print('sync_score success!')
     else:
-        print('sorry, some error happend! please contact the author.')
+        print('[sorry, some error happend! please contact the author.]')
+
+
+def start_game(sessionid):
+    url = 'https://game.weixin.qq.com/cgi-bin/gametetrisws/startgamev2?session_id={}'.format(sessionid)
+    data = {
+        "game_version": 5,
+        "appid": "wx7a727ff7d940bb3f"
+    }
+    req = session.post(url, data=json.dumps(data), headers=headers, verify=False).json()
+    print(req)
+    if req.get('errcode', -1) == 0:
+        print('start_game success!')
+        return req.get('data').get('nonce')
+    else:
+        print('[sorry, some error happend! please contact the author.]')
+        return None
+
+
+def main():
+    sessionid = input('please input sessionid:')
+
+    # start game
+    print('\r\n', '*'*30, 'start game', '*'*30)
+    nonce = start_game(sessionid)
+    use_time = 120
+    param = {
+        "game_behav_list": [
+            {"key": "newscore", "value": 233000},
+            {"key": "level", "value": 334},
+            {"key": "baoshi", "value": 233},
+            {"key": "combo", "value": 233}],
+        "use_time": use_time,
+        "sync_type": 1,
+        "combo_list": [0, 233],
+        "progress": 0
+    }
+    data = data_enc(sessionid, nonce, json.dumps(param))
+    data = {
+        "data": data,
+        "game_version": 5,
+        "appid": "wx7a727ff7d940bb3f",
+        "nonce": nonce
+    }
+
+    print('\r\n', '*'*30, 'playing game', '*'*30)
+    while use_time > 0:
+        print('playing game, please wait {} seconds.'.format(use_time))
+        use_time -= 10
+        time.sleep(10)
+
+    print('\r\n', '*'*30, 'sync score', '*'*30)
+    sync_score(sessionid, data)
     input('run over.')
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print('[sorry, some error happend! please contact the author.]')
+        traceback.print_exc()
+        input('run over.')
